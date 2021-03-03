@@ -1,0 +1,226 @@
+#1
+SELECT snum, sname 
+FROM Salespeople as S
+WHERE EXISTS(
+    SELECT cnum FROM Customers as C
+    WHERE C.snum = S.snum 
+    AND C.rating = 300
+) ;
+#2
+SELECT snum, sname 
+FROM Salespeople as S 
+WHERE EXISTS (
+    SELECT cnum FROM Customers as C
+    WHERE  S.city = C.city
+    AND S.snum != C.snum
+);
+#3
+SELECT cnum, cname 
+FROM Customers as C
+WHERE C.snum IN (
+    SELECT snum
+    FROM ORDERS 
+    GROUP BY snum
+    HAVING COUNT(snum) >= 2
+)
+#4
+SELECT cnum, cname FROM Customers as C 
+WHERE C.rating >= ANY(
+    SELECT rating FROM Customers
+    WHERE Customers.snum = 1002; #id of Serres from Salespeople
+)
+#5
+SELECT snum, sname FROM Salespeople as S 
+WHERE S.snum = ANY(
+    SELECT C.snum FROM Customers as C
+    WHERE S.city <> C.city
+)   
+#6
+SELECT onum, amt, odate FROM Orders as O
+WHERE O.amt > ALL(
+    SELECT or_d.amt FROM Orders as or_d
+    JOIN Customers ON
+    or_d.cnum = Customers.cnum;
+    WHERE Customers.city = 'London'
+);
+#7
+SELECT onum, amt, odate FROM Orders as O
+WHERE O.amt > (
+    SELECT MAX(or_d.amt) FROM Orders as or_d
+    JOIN Customers ON
+    or_d.cnum = Customers.cnum;
+    WHERE Customers.city = 'London'
+);
+#8
+SELECT cnum, cname, city, "Высокий рейтинг" 
+FROM Customers
+WHERE rating >= 200
+UNION
+SELECT cnum, cname, city, "Низкий рейтинг" 
+FROM Customers
+WHERE rating < 200
+#9
+SELECT cnum, cname 
+FROM Customers 
+JOIN Orders ON
+Customers.cnum = Orders.cnum
+WHERE Customers.cnum IN(
+    SELECT COUNT(cnum)
+    FROM Orders
+    GROUP BY cnum
+    HAVING COUNT(cnum) > 1
+)
+UNION
+SELECT snum, sname 
+FROM Salespeople 
+JOIN Orders ON
+Salespeople.snum = Orders.snum
+WHERE Salespeople.snum IN(
+    SELECT COUNT(snum)
+    FROM Orders
+    GROUP BY cnum
+    HAVING COUNT(cnum) > 1
+)
+; 
+
+#10
+SELECT snum from Salespeople as S
+WHERE S.city = 'San Jose'
+UNION
+SELECT cnum from Customers as C
+where C.city = 'San Jone'
+UNION
+SELECT onum from Orders as O
+where O.odate ='2015-03-10'
+#11
+INSERT INTO Salespeople (city, name, comm, cnum) 
+VALUE('San Jose', 'Bianco', NULL, 1100);
+#12
+DELETE FROM Orders
+WHERE cnum = (
+    SELECT cnum, cname FROM Customers
+    WHERE cname = 'Clemens'
+);
+#13
+UPDATE Customers
+SET rating += 100 
+WHERE city = 'Rome'
+#14
+UPDATE Customers
+SET snum = (
+    SELECT snum 
+    FROM Salespeople
+    WHERE sname = 'Motika'
+)
+WHERE snum = (
+    SELECT snum 
+    FROM Salespeople
+    WHERE sname = 'Serres'
+)
+#15
+INSERT INTO Multicust
+SELECT * FROM Salespeople
+WHERE snum IN (
+    SELECT snum
+    FROM Customers 
+    GROUP BY snum
+    HAVING COUNT(snum) > 1
+);
+#16
+DELETE FROM Customers
+WHERE cnum NOT IN (
+    SELECT cnum 
+    FROM Orders
+)
+#17
+UPDATE Salespeople 
+SET comm += 0.2
+WHERE snum IN (
+    SELECT snum 
+    FROM Orders
+    WHERE amt > 3000
+)
+#18
+CREATE TABLE Customers(
+    cnum INT,
+    cname VARCHAR(20),
+    city VARCHAR(20),
+    rating INT,
+    snum INT,
+    PRIMARY KEY (cnum),
+    FOREIGN KEY (snum) REFERENCES Salespeople(snum) 
+);
+#19
+SELECT * 
+FROM Orders
+GROUP BY odate;
+#20
+CREATE INDEX orders_date_index
+ON Orders (odate);
+#21
+# a = каждый продавец имеет только одного
+# заказчика с данной оценкой,
+SELECT * 
+FROM Salespeople as S
+JOIN Customers as C 
+ON S.snum = C.snum
+WHERE C.rating = 'a';
+#22
+CREATE TABLE Orders(
+    onum INT,
+    amt FLOAT,
+    odate DATE NOT NULL,
+    cnum INT,
+    snum INT,
+    PRIMARY KEY (onum),
+    FOREIGN KEY (snum) REFERENCES Salespeople(snum), 
+    FOREIGN KEY (cnum) REFERENCES Customers(cnum),
+    CONSTRAINT customer_sales_uniq UNIQUE (cnum,snum)
+);
+#23
+#Создайте таблицу Заказов так, чтобы комиссионные, по
+#умолчанию составляли 10%. Мабуть, мається на увазі таблиця Salespeople
+CREATE TABLE Salespeople(
+    snum INT,
+    sname VARCHAR(20) NOT NULL,
+    city VARCHAR(20) NOT NULL,
+    comm FLOAT DEFAULT 0.10 NOT NULL,
+    PRIMARY KEY (snum),
+    FOREIGN KEY (snum) REFERENCES Salespeople(snum), 
+);
+#24
+CREATE TABLE Orders(
+    onum INT,
+    amt FLOAT,
+    odate DATE,
+    cnum INT NOT NULL,
+    snum INT NOT NULL,
+    PRIMARY KEY (onum),
+    FOREIGN KEY (snum) REFERENCES Salespeople(snum), 
+    FOREIGN KEY (cnum) REFERENCES Customers(cnum),
+    CONSTRAINT onum_cnum_snum CHECK (onum > cnum > snum)
+);
+#25
+CREATE TABLE Cityorders(
+    onum INT,
+    city VARCHAR(20),
+    amt FLOAT,
+    odate DATE,
+    cnum INT NOT NULL,
+    snum INT NOT NULL,
+    PRIMARY KEY (onum),
+    FOREIGN KEY (snum) REFERENCES Salespeople(snum), 
+    FOREIGN KEY (cnum) REFERENCES Customers(cnum),
+);
+#26
+CREATE TABLE New_Orders(
+    prev INT, 
+    amt FLOAT,
+    odate DATE,
+    cnum INT NOT NULL,
+    snum INT NOT NULL,
+    PRIMARY KEY (prev),
+    FOREIGN KEY (snum) REFERENCES Salespeople(snum), 
+    FOREIGN KEY (cnum) REFERENCES Customers(cnum),
+    FOREIGN KEY (prev) REFERENCES Orders(onum),
+);
